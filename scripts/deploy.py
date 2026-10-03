@@ -45,7 +45,6 @@ def main():
     os.environ.setdefault("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES")
     (ROOT / ".cache/ansible/tmp").mkdir(parents=True, exist_ok=True)
     command = [infisical, "pam", "agentic", "access", "--agent", "generic",
-               "--userns=host",
                "--domain", os.environ.get("INFISICAL_DOMAIN", "https://infisical.zh.rickenbacher.tech"),
                "--reason", os.environ.get("PAM_REASON", "Ansible nginx proof of concept"),
                "--no-approval-request"]
