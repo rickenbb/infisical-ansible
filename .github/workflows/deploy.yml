@@ -4,7 +4,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: nginx-pam-demo
@@ -18,8 +17,6 @@ jobs:
     environment: demo
     env:
       INFISICAL_DOMAIN: ${{ vars.INFISICAL_DOMAIN || 'https://infisical.zh.rickenbacher.tech' }}
-      INFISICAL_MACHINE_IDENTITY_ID: ${{ vars.INFISICAL_MACHINE_IDENTITY_ID }}
-      INFISICAL_OIDC_AUDIENCE: ${{ vars.INFISICAL_OIDC_AUDIENCE || 'infisical' }}
       PAM_REASON: GitHub Actions nginx demo ${{ github.sha }}
     defaults:
       run:
@@ -38,9 +35,11 @@ jobs:
           make tools
       - name: Test plugin
         run: make test
-      - name: Authenticate with GitHub OIDC
-        run: .venv/bin/python scripts/github_oidc.py
       - name: Deploy nginx
+        env:
+          INFISICAL_AUTH_METHOD: universal-auth
+          INFISICAL_UNIVERSAL_AUTH_CLIENT_ID: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_ID }}
+          INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET }}
         run: make deploy
 
   # act prepares remote actions even when their step condition is false.
@@ -62,6 +61,7 @@ jobs:
       - name: Deploy nginx
         if: ${{ env.LOCAL_DRY_RUN != 'true' }}
         env:
+          INFISICAL_AUTH_METHOD: universal-auth
           INFISICAL_UNIVERSAL_AUTH_CLIENT_ID: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_ID }}
           INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET }}
         run: make deploy

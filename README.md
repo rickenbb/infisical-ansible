@@ -42,13 +42,13 @@ accounts need sudo and `ansible_become: true`. `.env` stays out of Git.
 `.env` credentials. The separate local job avoids act downloading remote actions
 even when their steps are skipped. It deploys to the real target; Docker is unnecessary.
 Use `make act ARGS=--dryrun` to validate the workflow without deploying.
-[act cannot issue GitHub OIDC tokens](https://nektosact.com/not_supported.html).
 
-**On GitHub:** configure the machine identity's [GitHub OIDC auth](https://infisical.com/docs/documentation/platform/identities/oidc-auth/github).
-Set repository/environment variables `INFISICAL_DOMAIN`,
-`INFISICAL_MACHINE_IDENTITY_ID` and `INFISICAL_OIDC_AUDIENCE` (default `infisical`).
-Bind it to your repository, workflow, and `demo` environment, then manually run
-**Deploy nginx through Infisical PAM**. GitHub uses OIDC without a client secret.
+**On GitHub:** add Actions secrets `INFISICAL_UNIVERSAL_AUTH_CLIENT_ID` and
+`INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET` at repository level or in the `demo`
+environment. Set the Actions variable `INFISICAL_DOMAIN` if using another
+Infisical instance. The workflow uses the same Universal Auth method as local
+deployment; the identity needs PAM access to `ssh/infitest`. Manually run
+**Deploy nginx through Infisical PAM** from the Actions tab.
 The workflow installs bubblewrap for Infisical's Linux sandbox.
 
 Validation: all eight offline tests pass through the local act job. Direct
