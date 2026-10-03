@@ -1,0 +1,18 @@
+namespace: poc
+name: infisical_pam
+version: 0.1.0
+readme: README.md
+authors:
+  - infisical-ansible contributors
+description: Unofficial proof-of-concept inventory adapter for Infisical PAM SSH proxies.
+license:
+  - MIT
+tags:
+  - inventory
+  - ssh
+  - infisical
+dependencies: {}
+build_ignore:
+  - __pycache__
+  - '*.pyc'
+

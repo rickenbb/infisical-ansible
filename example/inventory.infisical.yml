@@ -1,0 +1,11 @@
+plugin: poc.infisical_pam.inventory
+hosts:
+  nfitest:
+    # PAM account name/path, not the target's network address.
+    account: ssh/infitest
+    groups: [web]
+    vars:
+      # This PAM account injects root's SSH certificate on 192.168.61.173.
+      ansible_become: false
+      ansible_python_interpreter: /usr/bin/python3
+      expected_host_ip: 192.168.61.173

@@ -1,0 +1,67 @@
+name: Deploy nginx through Infisical PAM
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: nginx-pam-demo
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ !github.event.act }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: demo
+    env:
+      INFISICAL_DOMAIN: ${{ vars.INFISICAL_DOMAIN || 'https://infisical.zh.rickenbacher.tech' }}
+      INFISICAL_MACHINE_IDENTITY_ID: ${{ vars.INFISICAL_MACHINE_IDENTITY_ID }}
+      INFISICAL_OIDC_AUDIENCE: ${{ vars.INFISICAL_OIDC_AUDIENCE || 'infisical' }}
+      PAM_REASON: GitHub Actions nginx demo ${{ github.sha }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.LOCAL_WORKSPACE || github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install controller dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap openssh-client
+          make setup
+          make tools
+      - name: Test plugin
+        run: make test
+      - name: Authenticate with GitHub OIDC
+        run: .venv/bin/python scripts/github_oidc.py
+      - name: Deploy nginx
+        run: make deploy
+
+  # act prepares remote actions even when their step condition is false.
+  # Keep its native host job free of remote actions and share make deploy.
+  local-deploy:
+    if: ${{ github.event.act }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      INFISICAL_DOMAIN: ${{ vars.INFISICAL_DOMAIN || 'https://infisical.zh.rickenbacher.tech' }}
+      PAM_REASON: Local act nginx demo
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ env.LOCAL_WORKSPACE || github.workspace }}
+    steps:
+      - name: Test plugin
+        run: make test
+      - name: Deploy nginx
+        if: ${{ env.LOCAL_DRY_RUN != 'true' }}
+        env:
+          INFISICAL_UNIVERSAL_AUTH_CLIENT_ID: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_ID }}
+          INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET }}
+        run: make deploy

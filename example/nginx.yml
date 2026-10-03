@@ -1,0 +1,36 @@
+- name: Install and start nginx through ordinary Ansible SSH
+  hosts: web
+  gather_facts: true
+  gather_subset: [min, network]
+  pre_tasks:
+    - name: Confirm this is the intended demo host
+      ansible.builtin.assert:
+        that: expected_host_ip in ansible_facts.all_ipv4_addresses
+        fail_msg: The PAM account resolved to a different host than expected.
+  tasks:
+    - name: Install nginx
+      ansible.builtin.package:
+        name: nginx
+        state: present
+
+    - name: Enable and start nginx
+      ansible.builtin.service:
+        name: nginx
+        enabled: true
+        state: started
+
+    - name: Verify nginx answers HTTP on the target
+      timeout: 45
+      # One pipelined connection, without uri's extra temporary-file sessions.
+      ansible.builtin.command:
+        argv:
+          - /usr/bin/python3
+          - -c
+          - |
+            import urllib.request
+            client = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with client.open("http://127.0.0.1/", timeout=10) as response:
+                assert response.status == 200, response.status
+                print("nginx returned HTTP 200")
+      changed_when: false
+      when: not ansible_check_mode
