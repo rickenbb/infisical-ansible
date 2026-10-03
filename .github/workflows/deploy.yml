@@ -12,7 +12,7 @@ concurrency:
 jobs:
   deploy:
     if: ${{ !github.event.act }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: demo
     env:
@@ -30,9 +30,16 @@ jobs:
       - name: Install controller dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap openssh-client
+          sudo apt-get install -y apparmor bubblewrap openssh-client
           make setup
           make tools
+      - name: Configure and verify PAM sandbox
+        run: |
+          # Ubuntu 24.04 restricts user namespaces without an AppArmor grant.
+          sudo install -m 0644 scripts/bwrap.apparmor /etc/apparmor.d/bwrap
+          sudo apparmor_parser -r /etc/apparmor.d/bwrap
+          # Run as the ordinary runner user, just like the Infisical child.
+          bwrap --unshare-user --uid 0 --gid 0 --ro-bind / / -- /bin/true
       - name: Test plugin
         run: make test
       - name: Deploy nginx

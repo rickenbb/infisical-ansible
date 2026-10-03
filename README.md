@@ -49,7 +49,9 @@ environment. Set the Actions variable `INFISICAL_DOMAIN` if using another
 Infisical instance. The workflow uses the same Universal Auth method as local
 deployment; the identity needs PAM access to `ssh/infitest`. Manually run
 **Deploy nginx through Infisical PAM** from the Actions tab.
-The workflow installs bubblewrap for Infisical's Linux sandbox.
+The workflow uses Ubuntu 24.04, installs bubblewrap for Infisical's Linux
+sandbox, and loads a bubblewrap-specific AppArmor profile to allow user
+namespaces. It verifies sandbox startup before requesting PAM access.
 
 Validation: all eight offline tests pass through the local act job. Direct
 deployment has been confirmed working; the updated act job has been verified
