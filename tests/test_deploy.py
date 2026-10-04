@@ -112,13 +112,22 @@ any_unparsed_is_failed = True
         self.project.joinpath("group_vars").mkdir()
         self.project.joinpath("group_vars/all.yml").write_text("project_marker: from-caller\n")
         results = []
+        find_executable = deploy.shutil.which
+        pam_stub = str(self.project / "stub-infisical")
+
+        def find_tool(name):
+            # This offline test replaces the PAM parent below. Only Ansible
+            # must be installed; do not depend on a local make tools run.
+            return pam_stub if name == "infisical" else find_executable(name)
 
         def run_child(binary, command):
+            self.assertEqual(binary, pam_stub)
             child = command[command.index("--") + 1:]
             env = dict(os.environ, INFISICAL_PAM_CONTEXT_FILE=str(ROOT / "tests/fixtures/context.md"))
             results.append(subprocess.run(child, env=env, text=True, capture_output=True))
 
-        with patch("deploy.os.execv", side_effect=run_child):
+        with patch("deploy.shutil.which", side_effect=find_tool), \
+             patch("deploy.os.execv", side_effect=run_child):
             deploy.main(["--project-dir", str(self.project), "--inventory", self.inventory.name,
                          "--inventory-only"])
         self.assertEqual(results[0].returncode, 0, results[0].stderr)
