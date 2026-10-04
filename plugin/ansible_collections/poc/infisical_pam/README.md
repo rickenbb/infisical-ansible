@@ -2,7 +2,8 @@
 
 Use `poc.infisical_pam.inventory` inside `infisical pam agentic access`.
 The collection needs only Ansible and the context file supplied by Infisical;
-it does not authenticate, start proxies, or depend on the demo scripts.
+it does not authenticate, start proxies, or depend on the demo scripts. The
+inventory automatically selects its `poc.infisical_pam.ssh` connection adapter.
 
 Install it with Ansible's standard collection installer from a built artifact,
 a Git repository, or Galaxy/private Automation Hub after publication. The
@@ -38,6 +39,14 @@ infisical pam agentic access --account servers/web01 --reason deploy -- \
 ```
 
 See `ansible-doc -t inventory poc.infisical_pam.inventory` for options.
+The connection adapter inherits Ansible's standard OpenSSH options; see
+`ansible-doc -t connection poc.infisical_pam.ssh`. It redirects task stderr into
+stdout on POSIX targets because the pinned Infisical gateway does not forward
+SSH stderr. This keeps sudo password prompts and task diagnostics visible.
+Supply `ansible_become_password` through your normal secret mechanism when
+required. Pipelining and binary file transfers retain normal Ansible behavior;
+remote task diagnostics appear in stdout.
+
 `plugins/module_utils/context.py` is the only code coupled to Infisical's
 Markdown format (CLI 0.43.132). Only loopback SSH endpoints are accepted.
 SSH host-key checks are disabled **only for these ephemeral local proxies**;

@@ -111,7 +111,7 @@ class InventoryModule(BaseInventoryPlugin):
                 self.inventory.set_variable(alias, key, value)
             for key, value in {
                 "infisical_pam_account": endpoint.account,
-                "ansible_connection": "ssh",
+                "ansible_connection": "poc.infisical_pam.ssh",
                 "ansible_host": endpoint.host,
                 "ansible_port": endpoint.port,
                 "ansible_user": "pam",

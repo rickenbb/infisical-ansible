@@ -76,6 +76,7 @@ class AnsibleIntegrationTests(unittest.TestCase):
         self.assertEqual(host["ansible_host"], "127.0.0.1")
         self.assertEqual(host["ansible_port"], 52431)
         self.assertEqual(host["ansible_user"], "pam")
+        self.assertEqual(host["ansible_connection"], "poc.infisical_pam.ssh")
         self.assertEqual(host["ansible_remote_tmp"], "/tmp")
         self.assertFalse(host["ansible_ssh_use_tty"])
         self.assertFalse(host["ansible_become"])

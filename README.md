@@ -10,10 +10,10 @@ Ansible controller → localhost PAM proxy → Infisical Gateway → target
 
 The repository provides a standard Ansible collection,
 [`poc.infisical_pam`](plugin/ansible_collections/poc/infisical_pam), a general
-controller launcher, and a reusable GitHub workflow. The collection only reads
-the live `INFISICAL_PAM_CONTEXT_FILE`; it does not authenticate or start proxies.
-The launcher requests the unique accounts declared in an inventory and runs
-Ansible inside that PAM session.
+controller launcher, and a reusable GitHub workflow. The collection reads
+the live `INFISICAL_PAM_CONTEXT_FILE` and supplies the SSH connection adapter;
+it does not authenticate or start proxies. The launcher requests the unique
+accounts declared in an inventory and runs Ansible inside that PAM session.
 
 This unofficial integration is tested with Infisical CLI **0.43.132** and
 Ansible **2.19.9**. The context parser depends on Infisical's
@@ -33,6 +33,16 @@ Change the inventory's `account` to an account your machine identity can access.
 The identity needs PAM project membership and account access. Adjust inventory
 groups and host variables to match your playbook; a non-root account can use
 `ansible_become: true` if it has sudo access. The target needs Python 3.
+
+The inventory selects `poc.infisical_pam.ssh`, which uses Ansible's standard
+OpenSSH connection options. The pinned Infisical gateway
+[forwards normal SSH channel data without forwarding stderr](https://github.com/Infisical/cli/blob/v0.43.132/packages/pam/handlers/ssh/proxy.go).
+The adapter redirects task stderr into stdout on the target so Ansible can
+receive sudo's password prompt and report remote errors. Supply
+`ansible_become_password` through your normal secret mechanism when sudo
+requires a password. Module pipelining stays enabled, and file-transfer streams
+retain their binary contents. Targets need a POSIX shell; task diagnostics
+appear in stdout.
 
 Set the Actions variable `INFISICAL_DOMAIN` to your instance URL. Add these
 Actions **secrets** at repository level or in your chosen deployment environment:
@@ -204,7 +214,9 @@ Cloud when no domain is configured.
 
 ## Development
 
-`make test` runs offline parser, launcher, and real Ansible integration checks.
+`make test` runs offline parser, launcher, and real Ansible integration checks,
+including sudo password negotiation and binary file transfers through a local
+transport fixture that drops stderr like the pinned gateway.
 The launcher tests install the collection in an isolated project and verify
 that project's own Ansible configuration. CI also installs the built artifact
 and exercises the reusable workflow in `validate-only` mode without PAM secrets.
