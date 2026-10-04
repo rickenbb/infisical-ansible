@@ -11,4 +11,18 @@ jobs:
         with:
           python-version: '3.12'
       - run: make setup test package
-
+      - name: Install the built collection
+        run: .venv/bin/ansible-galaxy collection install dist/poc-infisical_pam-0.1.0.tar.gz -p .cache/installed-collections --force
+      - name: Exercise the installed inventory plugin
+        env:
+          ANSIBLE_COLLECTIONS_PATH: ${{ github.workspace }}/.cache/installed-collections
+          INFISICAL_PAM_CONTEXT_FILE: ${{ github.workspace }}/tests/fixtures/context.md
+        run: .venv/bin/ansible-inventory -i example/inventory.infisical.yml --list
+  reuse:
+    uses: ./.github/workflows/ansible-pam.yml
+    with:
+      inventory: example/inventory.infisical.yml
+      playbook: example/nginx.yml
+      infisical-domain: https://app.infisical.com/api
+      environment: validation
+      validate-only: true

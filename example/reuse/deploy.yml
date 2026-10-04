@@ -1,0 +1,21 @@
+# Copy to .github/workflows/deploy.yml in the consuming repository.
+name: Deploy through Infisical PAM
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    # Start with main after pushing the toolkit changes; pin a tested tag or SHA.
+    uses: rickenbb/infisical-ansible/.github/workflows/ansible-pam.yml@main
+    with:
+      inventory: inventory.infisical.yml
+      playbook: site.yml
+      infisical-domain: ${{ vars.INFISICAL_DOMAIN }}
+      environment: production
+      # ansible-args: '["--check", "--diff", "--limit", "web01"]'
+      # collections-requirements: collections/requirements.yml
+      # python-requirements: requirements.txt
+    secrets:
+      INFISICAL_UNIVERSAL_AUTH_CLIENT_ID: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_ID }}
+      INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET }}

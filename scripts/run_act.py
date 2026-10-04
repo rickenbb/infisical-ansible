@@ -25,6 +25,8 @@ def main():
                "--job", "local-deploy", "--platform", "ubuntu-latest=-self-hosted",
                "--env-file", "/dev/null", "--no-cache-server",
                "--env", f"LOCAL_WORKSPACE={ROOT}",
+               "--env", f"PAM_INVENTORY={os.environ.get('PAM_INVENTORY', 'example/inventory.infisical.yml')}",
+               "--env", f"PAM_PLAYBOOK={os.environ.get('PAM_PLAYBOOK', 'example/nginx.yml')}",
                "--env", f"LOCAL_DRY_RUN={'true' if '--dryrun' in sys.argv[1:] or '-n' in sys.argv[1:] else 'false'}",
                "--var", f"INFISICAL_DOMAIN={os.environ['INFISICAL_DOMAIN']}",
                "--secret", "INFISICAL_UNIVERSAL_AUTH_CLIENT_ID",

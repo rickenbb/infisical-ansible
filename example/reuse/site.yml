@@ -1,0 +1,6 @@
+- name: Verify access through Infisical PAM
+  hosts: web
+  gather_facts: false
+  tasks:
+    - name: Verify the target has Python and accepts Ansible commands
+      ansible.builtin.ping:

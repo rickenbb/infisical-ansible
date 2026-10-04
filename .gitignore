@@ -1,9 +1,9 @@
 .venv/
 .tools/
 .cache/
+.ansible-pam/
 .env
 __pycache__/
 *.py[cod]
 dist/
 .DS_Store
-

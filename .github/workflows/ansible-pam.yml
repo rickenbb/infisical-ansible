@@ -1,0 +1,137 @@
+name: Run Ansible through Infisical PAM
+
+on:
+  workflow_call:
+    inputs:
+      inventory:
+        description: Inventory path relative to working-directory; must end in .infisical.yml or .infisical.yaml
+        required: true
+        type: string
+      playbook:
+        description: Playbook path relative to working-directory
+        required: true
+        type: string
+      infisical-domain:
+        description: Infisical instance URL
+        required: true
+        type: string
+      working-directory:
+        description: Ansible project directory in the calling repository
+        default: .
+        type: string
+      environment:
+        description: Deployment environment in the calling repository
+        default: deployment
+        type: string
+      ansible-args:
+        description: JSON array of Ansible arguments, such as ["--check", "--diff"]
+        default: '[]'
+        type: string
+      collections-requirements:
+        description: Optional requirements.yml path relative to working-directory
+        default: ''
+        type: string
+      python-requirements:
+        description: Optional pip requirements file relative to working-directory
+        default: ''
+        type: string
+      reason:
+        description: PAM audit reason; defaults to repository and commit
+        default: ''
+        type: string
+      validate-only:
+        description: Validate setup and inputs without requesting PAM access
+        default: false
+        type: boolean
+    secrets:
+      INFISICAL_UNIVERSAL_AUTH_CLIENT_ID:
+        required: false
+      INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET:
+        required: false
+      PAM_TOOLKIT_TOKEN:
+        description: Optional token with read access when the toolkit repository is private
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pam-${{ github.repository }}-${{ inputs.environment }}-${{ inputs.inventory }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    env:
+      INFISICAL_DOMAIN: ${{ inputs.infisical-domain }}
+      PAM_REASON: ${{ inputs.reason || format('Ansible deployment {0} {1}', github.repository, github.sha) }}
+      PAM_PROJECT: ${{ github.workspace }}/${{ inputs.working-directory }}
+      PAM_INVENTORY: ${{ inputs.inventory }}
+      PAM_PLAYBOOK: ${{ inputs.playbook }}
+      PAM_ARGS_JSON: ${{ inputs.ansible-args }}
+      PAM_COLLECTIONS_REQUIREMENTS: ${{ inputs.collections-requirements }}
+      PAM_PYTHON_REQUIREMENTS: ${{ inputs.python-requirements }}
+      ANSIBLE_COLLECTIONS_PATH: ${{ github.workspace }}/.ansible-pam/collections
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the calling project
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check out PAM tooling at the workflow commit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .ansible-pam
+          token: ${{ secrets.PAM_TOOLKIT_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install controller dependencies and collection
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apparmor bubblewrap openssh-client
+          make -C .ansible-pam setup
+          .ansible-pam/.venv/bin/python .ansible-pam/scripts/install_tools.py --infisical-only
+          .ansible-pam/.venv/bin/ansible-galaxy collection install \
+            .ansible-pam/plugin/ansible_collections/poc/infisical_pam \
+            --collections-path "$ANSIBLE_COLLECTIONS_PATH" --force
+          if [[ -n "$PAM_COLLECTIONS_REQUIREMENTS" ]]; then
+            (
+              cd "$PAM_PROJECT"
+              "$GITHUB_WORKSPACE/.ansible-pam/.venv/bin/ansible-galaxy" collection install \
+                -r "$PAM_COLLECTIONS_REQUIREMENTS" --collections-path "$ANSIBLE_COLLECTIONS_PATH"
+            )
+          fi
+          if [[ -n "$PAM_PYTHON_REQUIREMENTS" ]]; then
+            .ansible-pam/.venv/bin/python -m pip install \
+              -r "$PAM_PROJECT/$PAM_PYTHON_REQUIREMENTS"
+          fi
+      - name: Configure and verify PAM sandbox
+        run: |
+          sudo install -m 0644 .ansible-pam/scripts/bwrap.apparmor /etc/apparmor.d/bwrap
+          sudo apparmor_parser -r /etc/apparmor.d/bwrap
+          bwrap --unshare-user --uid 0 --gid 0 --ro-bind / / -- /bin/true
+      - name: Validate project inputs
+        run: |
+          .ansible-pam/.venv/bin/python .ansible-pam/scripts/deploy.py \
+            --project-dir "$PAM_PROJECT" --validate-only
+      - name: Run Ansible
+        if: ${{ !inputs.validate-only }}
+        env:
+          INFISICAL_AUTH_METHOD: universal-auth
+          INFISICAL_UNIVERSAL_AUTH_CLIENT_ID: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_ID }}
+          INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET }}
+        run: |
+          if [[ -z "$INFISICAL_UNIVERSAL_AUTH_CLIENT_ID" || -z "$INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET" ]]; then
+            echo '::error::Set INFISICAL_UNIVERSAL_AUTH_CLIENT_ID and INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET as Actions secrets.'
+            exit 1
+          fi
+          .ansible-pam/.venv/bin/python .ansible-pam/scripts/deploy.py \
+            --project-dir "$PAM_PROJECT"

@@ -12,42 +12,16 @@ concurrency:
 jobs:
   deploy:
     if: ${{ !github.event.act }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    environment: demo
-    env:
-      INFISICAL_DOMAIN: ${{ vars.INFISICAL_DOMAIN || 'https://infisical.zh.rickenbacher.tech' }}
-      PAM_REASON: GitHub Actions nginx demo ${{ github.sha }}
-    defaults:
-      run:
-        shell: bash
-        working-directory: ${{ env.LOCAL_WORKSPACE || github.workspace }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install controller dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y apparmor bubblewrap openssh-client
-          make setup
-          make tools
-      - name: Configure and verify PAM sandbox
-        run: |
-          # Ubuntu 24.04 restricts user namespaces without an AppArmor grant.
-          sudo install -m 0644 scripts/bwrap.apparmor /etc/apparmor.d/bwrap
-          sudo apparmor_parser -r /etc/apparmor.d/bwrap
-          # Run as the ordinary runner user, just like the Infisical child.
-          bwrap --unshare-user --uid 0 --gid 0 --ro-bind / / -- /bin/true
-      - name: Test plugin
-        run: make test
-      - name: Deploy nginx
-        env:
-          INFISICAL_AUTH_METHOD: universal-auth
-          INFISICAL_UNIVERSAL_AUTH_CLIENT_ID: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_ID }}
-          INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET }}
-        run: make deploy
+    uses: ./.github/workflows/ansible-pam.yml
+    with:
+      inventory: example/inventory.infisical.yml
+      playbook: example/nginx.yml
+      infisical-domain: ${{ vars.INFISICAL_DOMAIN || 'https://infisical.zh.rickenbacher.tech' }}
+      environment: demo
+      reason: GitHub Actions nginx demo ${{ github.sha }}
+    secrets:
+      INFISICAL_UNIVERSAL_AUTH_CLIENT_ID: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_ID }}
+      INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET: ${{ secrets.INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET }}
 
   # act prepares remote actions even when their step condition is false.
   # Keep its native host job free of remote actions and share make deploy.
@@ -65,6 +39,8 @@ jobs:
     steps:
       - name: Test plugin
         run: make test
+      - name: Validate project inputs
+        run: make deploy ARGS=--validate-only
       - name: Deploy nginx
         if: ${{ env.LOCAL_DRY_RUN != 'true' }}
         env:

@@ -1,0 +1,5 @@
+plugin: poc.infisical_pam.inventory
+hosts:
+  web01:
+    account: servers/web01
+    groups: [web]

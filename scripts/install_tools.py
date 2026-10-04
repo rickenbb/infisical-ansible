@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Install pinned, checksum-verified release binaries only inside this repo."""
 
+import argparse
 import hashlib
 import io
 from pathlib import Path
@@ -36,16 +37,19 @@ def install(repo, version, archive, checksums, binary):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--infisical-only", action="store_true", help="skip act on hosted runners")
+    args = parser.parse_args()
     system = platform.system()
     arch = {"arm64": "arm64", "aarch64": "arm64", "x86_64": "amd64"}.get(platform.machine())
     if system not in ("Darwin", "Linux") or not arch:
         raise SystemExit("Supported controllers: macOS/Linux, arm64/amd64")
     install("Infisical/cli", "0.43.132", f"cli_0.43.132_{system.lower()}_{arch}.tar.gz",
             "checksums-darwin.txt" if system == "Darwin" else "checksums.txt", "infisical")
-    act_arch = "arm64" if arch == "arm64" else "x86_64"
-    install("nektos/act", "0.2.89", f"act_{system}_{act_arch}.tar.gz", "checksums.txt", "act")
+    if not args.infisical_only:
+        act_arch = "arm64" if arch == "arm64" else "x86_64"
+        install("nektos/act", "0.2.89", f"act_{system}_{act_arch}.tar.gz", "checksums.txt", "act")
 
 
 if __name__ == "__main__":
     main()
-
